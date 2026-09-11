@@ -1,0 +1,19 @@
+# .NET build artifacts
+bin/
+obj/
+*.user
+.vs/
+
+# Test results
+TestResults/
+*.trx
+coverage*.xml
+
+# Local data / secrets
+*.db
+*.db-*
+appsettings.Development.json
+
+# Editors
+.idea/
+*.swp
