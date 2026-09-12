@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>AutostartAudit.Cli</RootNamespace>
+    <AssemblyName>autostart-audit</AssemblyName>
+    <Description>Headless command line for Autostart Audit (scripting and testing).</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AutostartAudit.Core\AutostartAudit.Core.csproj" />
+  </ItemGroup>
+</Project>
