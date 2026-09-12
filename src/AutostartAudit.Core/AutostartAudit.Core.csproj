@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>AutostartAudit.Core</RootNamespace>
+    <Description>Domain model and scan engine for Autostart Audit. No UI or OS-shell dependencies.</Description>
+  </PropertyGroup>
+</Project>
