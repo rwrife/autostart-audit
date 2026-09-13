@@ -10,7 +10,7 @@ public class ScanDocumentJsonTests
     [Fact]
     public void EmptyDocument_SerializesToExactEnvelope()
     {
-        Assert.Equal("{\"entries\":[],\"sources\":[]}", ScanDocument.Empty.ToJson());
+        Assert.Equal("{\"entries\":[],\"sources\":[],\"scanComplete\":false}", ScanDocument.Empty.ToJson());
     }
 
     [Fact]
@@ -20,13 +20,18 @@ public class ScanDocumentJsonTests
         Assert.NotNull(parsed);
         Assert.Empty(parsed.Entries);
         Assert.Empty(parsed.Sources);
+        Assert.False(parsed.ScanComplete);
     }
 
     [Fact]
-    public void Engine_ProducesEmptyValidDocument()
+    public void Engine_DefaultScan_AlwaysReportsBothDefaultSources()
     {
+        // Host-independent: whatever the OS, the default scan must list both
+        // sources with an honest capability (never silently missing).
         var doc = ScanEngine.ScanAll();
-        Assert.Same(ScanDocument.Empty, doc);
+        var kinds = doc.Sources.Select(s => s.SourceKind).ToList();
+        Assert.Contains(RunKeySource.Kind, kinds);
+        Assert.Contains(StartupFolderSource.Kind, kinds);
         using var _ = JsonDocument.Parse(doc.ToJson()); // throws if invalid JSON
     }
 
@@ -38,7 +43,8 @@ public class ScanDocumentJsonTests
         var doc = new ScanDocument
         {
             Entries = Array.Empty<AutoStartEntry>(),
-            Sources = new[] { new SourceReport { SourceKind = "scheduled-task", Capability = Capability.Denied, Detail = "requires elevation" } },
+            Sources = new[] { new SourceReport { SourceKind = "scheduled-task", Capability = SourceCapability.Denied, Detail = "requires elevation" } },
+            ScanComplete = false,
         };
         var json = doc.ToJson();
         using var parsed = JsonDocument.Parse(json);

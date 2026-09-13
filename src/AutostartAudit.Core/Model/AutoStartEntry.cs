@@ -31,5 +31,5 @@ public sealed record AutoStartEntry
     public string? SignerSubject { get; init; }
 
     /// <summary>Health of this single observation (read ok, denied, partial...).</summary>
-    public required Capability Observation { get; init; }
+    public required ObservationHealth Observation { get; init; }
 }
