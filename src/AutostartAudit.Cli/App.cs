@@ -5,11 +5,15 @@ namespace AutostartAudit.Cli;
 
 /// <summary>
 /// CLI entry logic, separated from <c>Program</c> so tests can drive it and
-/// capture output without spawning a process.
+/// capture output without spawning a process. The scan delegate is injectable
+/// so tests never depend on the host machine's real autostart state.
 /// </summary>
 public static class App
 {
-    public static int Run(IReadOnlyList<string> args, TextWriter output, TextWriter error)
+    public static int Run(IReadOnlyList<string> args, TextWriter output, TextWriter error) =>
+        Run(args, output, error, ScanEngine.ScanAll);
+
+    public static int Run(IReadOnlyList<string> args, TextWriter output, TextWriter error, Func<ScanDocument> scan)
     {
         if (args.Count == 1 && (args[0] is "--help" or "-h"))
         {
@@ -22,14 +26,14 @@ public static class App
             var rest = args.Skip(1).ToList();
             if (rest.Count == 0)
             {
-                var doc = ScanEngine.ScanAll();
+                var doc = scan();
                 output.WriteLine(doc.ToTextSummary());
                 return 0;
             }
 
             if (rest.Count == 1 && rest[0] == "--json")
             {
-                var doc = ScanEngine.ScanAll();
+                var doc = scan();
                 output.WriteLine(doc.ToJson());
                 return 0;
             }

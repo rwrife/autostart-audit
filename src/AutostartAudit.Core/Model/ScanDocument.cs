@@ -15,6 +15,14 @@ public sealed record ScanDocument
     public required IReadOnlyList<SourceReport> Sources { get; init; }
 
     /// <summary>
+    /// Overall scan completeness: true only when at least one source ran and
+    /// every source report is <see cref="SourceCapability.Scanned"/>. A false
+    /// flag means the inventory may be incomplete — it is never presented as
+    /// evidence of a clean machine.
+    /// </summary>
+    public required bool ScanComplete { get; init; }
+
+    /// <summary>
     /// A document with nothing observed. Only legitimately produced by the
     /// engine when no sources have been wired yet; a real scan must instead
     /// emit one <see cref="SourceReport"/> per source with its honest
@@ -24,11 +32,13 @@ public sealed record ScanDocument
     {
         Entries = Array.Empty<AutoStartEntry>(),
         Sources = Array.Empty<SourceReport>(),
+        ScanComplete = false,
     };
 
     public string ToJson() => JsonSerializer.Serialize(this, JsonOptions.Default);
 
     public string ToTextSummary() =>
         $"autostart-audit scan: {Entries.Count} entr{(Entries.Count == 1 ? "y" : "ies")}, "
-        + $"{Sources.Count} source{(Sources.Count == 1 ? "" : "s")} reported";
+        + $"{Sources.Count} source{(Sources.Count == 1 ? "" : "s")} reported, "
+        + $"scan-complete: {(ScanComplete ? "yes" : "no")}";
 }
