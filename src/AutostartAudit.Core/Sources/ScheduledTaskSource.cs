@@ -79,7 +79,18 @@ public sealed class ScheduledTaskSource : IAutoStartSource
     {
         var document = XDocument.Parse(xml, LoadOptions.PreserveWhitespace);
         var root = document.Root ?? throw new InvalidOperationException("task document has no root element");
-        var triggers = root.Descendants()
+        if (root.Name.LocalName != "Task" || (root.Name.NamespaceName.Length > 0
+            && root.Name.NamespaceName != "http://schemas.microsoft.com/windows/2004/02/mit/task"))
+            throw new InvalidOperationException("document is not a Task Scheduler task");
+        var ns = root.Name.Namespace;
+        var triggerContainer = root.Elements(ns + "Triggers").SingleOrDefault();
+        foreach (var trigger in root.Descendants().Where(e => e.Name.LocalName is "BootTrigger" or "LogonTrigger"))
+            if (trigger.Parent != triggerContainer || trigger.Name.Namespace != ns)
+                throw new InvalidOperationException("startup trigger is outside the task Triggers container");
+        foreach (var container in root.Descendants().Where(e => e.Name.LocalName is "Triggers" or "Actions"))
+            if (container.Parent != root || container.Name.Namespace != ns)
+                throw new InvalidOperationException("task container is in an invalid schema position");
+        var triggers = (triggerContainer?.Elements() ?? Enumerable.Empty<XElement>())
             .Where(e => e.Name.LocalName is "LogonTrigger" or "BootTrigger")
             .Select(e => e.Name.LocalName == "LogonTrigger" ? "logon" : "boot")
             .Distinct(StringComparer.Ordinal)
@@ -87,14 +98,14 @@ public sealed class ScheduledTaskSource : IAutoStartSource
 
         var targets = new List<string>();
         var evidence = new List<string>();
-        var actions = root.Descendants().FirstOrDefault(e => e.Name.LocalName == "Actions");
+        var actions = root.Elements(ns + "Actions").SingleOrDefault();
         if (actions is not null)
         {
             foreach (var action in actions.Elements())
             {
-                if (action.Name.LocalName == "Exec")
+                if (action.Name == ns + "Exec")
                 {
-                    var command = action.Elements().FirstOrDefault(e => e.Name.LocalName == "Command")?.Value.Trim();
+                    var command = action.Elements(ns + "Command").SingleOrDefault()?.Value.Trim();
                     if (!string.IsNullOrEmpty(command))
                         targets.Add(command);
                     else

@@ -32,48 +32,43 @@ public sealed class WindowsServiceProbe : IServiceProbe
             return new ServiceEnumeration(services, observations);
         }
 
-        uint initialResume = 0;
-        var initialSucceeded = EnumServicesStatusEx(manager, 0, ServiceWin32, ServiceStateAll, nint.Zero, 0,
-            out var bytesNeeded, out _, ref initialResume, null);
-        var firstError = initialSucceeded ? 0 : Marshal.GetLastWin32Error();
-        if (initialSucceeded && bytesNeeded == 0)
-        {
-            observations.Add(new SourceObservation { Id = "service-control-manager", Health = ObservationHealth.Ok, Detail = "no Win32 services present" });
-            return new ServiceEnumeration(services, observations);
-        }
-        if (bytesNeeded == 0 || firstError != ErrorMoreData)
-        {
-            observations.Add(Win32Failure("service-control-manager", firstError));
-            return new ServiceEnumeration(services, observations);
-        }
+        ServicePageReader.Read(resume => ReadPage(manager, resume),
+            item => ReadService(manager, item.Name, item.DisplayName, item.State, services, observations), observations);
+        return new ServiceEnumeration(services, observations);
+    }
 
-        var buffer = Marshal.AllocHGlobal(checked((int)bytesNeeded));
+    private sealed record NativeService(string Name, string DisplayName, string State);
+
+    private static ServicePage<NativeService> ReadPage(SafeServiceHandle manager, uint resume)
+    {
+        // EnumServicesStatusEx supports at most 256 KiB. Large inventories are paged,
+        // not allocated from bytesNeeded (which describes all remaining records).
+        const int capacity = 256 * 1024;
+        var buffer = Marshal.AllocHGlobal(capacity);
         try
         {
-            uint resume = 0;
-            if (!EnumServicesStatusEx(manager, 0, ServiceWin32, ServiceStateAll, buffer, bytesNeeded,
-                    out _, out var count, ref resume, null))
+            var success = EnumServicesStatusEx(manager, 0, ServiceWin32, ServiceStateAll, buffer, capacity,
+                out _, out var count, ref resume, null);
+            var error = success ? 0 : Marshal.GetLastWin32Error();
+            var records = new List<NativeService>();
+            if (success || error == ErrorMoreData)
             {
-                observations.Add(Win32Failure("service-control-manager", Marshal.GetLastWin32Error()));
-                return new ServiceEnumeration(services, observations);
+                var size = Marshal.SizeOf<EnumServiceStatusProcess>();
+                for (var index = 0; index < count; index++)
+                {
+                    var item = Marshal.PtrToStructure<EnumServiceStatusProcess>(buffer + checked(index * size));
+                    var name = Marshal.PtrToStringUni(item.ServiceName)
+                        ?? throw new InvalidOperationException("SCM returned a record without a service name");
+                    records.Add(new NativeService(name, Marshal.PtrToStringUni(item.DisplayName) ?? name,
+                        StateName(item.Status.CurrentState)));
+                }
             }
-
-            var size = Marshal.SizeOf<EnumServiceStatusProcess>();
-            for (var index = 0; index < count; index++)
-            {
-                var item = Marshal.PtrToStructure<EnumServiceStatusProcess>(buffer + checked(index * size));
-                var name = Marshal.PtrToStringUni(item.ServiceName) ?? $"unknown-{index}";
-                ReadService(manager, name, Marshal.PtrToStringUni(item.DisplayName) ?? name,
-                    StateName(item.Status.CurrentState), services, observations);
-            }
-            observations.Add(new SourceObservation { Id = "service-control-manager", Health = ObservationHealth.Ok });
+            return new ServicePage<NativeService>(records, resume, error);
         }
         finally
         {
             Marshal.FreeHGlobal(buffer);
         }
-
-        return new ServiceEnumeration(services, observations);
     }
 
     private static void ReadService(

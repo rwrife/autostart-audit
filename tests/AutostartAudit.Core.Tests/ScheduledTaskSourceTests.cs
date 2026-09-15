@@ -52,6 +52,20 @@ public class ScheduledTaskSourceTests
         Assert.Contains(result.Observations, o => o.Health == ObservationHealth.Unknown);
     }
 
+    [Theory]
+    [InlineData("<NotATask><BootTrigger/><Actions><Exec><Command>fake.exe</Command></Exec></Actions></NotATask>")]
+    [InlineData("<Task><BootTrigger/><Actions><Exec><Command>fake.exe</Command></Exec></Actions></Task>")]
+    [InlineData("<Task><Triggers><BootTrigger/></Triggers><Other><Actions><Exec><Command>fake.exe</Command></Exec></Actions></Other></Task>")]
+    public void MalformedStructure_IsUnknownNotAHealthyTask(string xml)
+    {
+        var snapshot = new ScheduledTaskEnumeration(
+            new[] { new ScheduledTaskSnapshot(@"\Malformed", "Malformed", "Ready", true, xml) },
+            new[] { new SourceObservation { Id = @"\", Health = ObservationHealth.Ok } });
+        var result = new ScheduledTaskSource(new FakeScheduledTaskProbe(snapshot), new FixedElevationProbe(true)).Scan(ScanContext.Default);
+        Assert.DoesNotContain(result.Entries, e => e.Observation == ObservationHealth.Ok);
+        Assert.Contains(result.Observations, o => o.Id == @"\Malformed" && o.Health == ObservationHealth.Unknown);
+    }
+
     [Fact]
     public void NonStartupTask_IsNotAnEntry()
     {
