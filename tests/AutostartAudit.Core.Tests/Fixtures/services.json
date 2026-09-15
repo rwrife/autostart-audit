@@ -1,0 +1,9 @@
+[
+  {"NativeStart":0,"Delayed":false,"Expected":"Boot"},
+  {"NativeStart":1,"Delayed":false,"Expected":"System"},
+  {"NativeStart":2,"Delayed":false,"Expected":"Automatic"},
+  {"NativeStart":2,"Delayed":true,"Expected":"AutomaticDelayed"},
+  {"NativeStart":3,"Delayed":false,"Expected":"Manual"},
+  {"NativeStart":4,"Delayed":false,"Expected":"Disabled"},
+  {"NativeStart":99,"Delayed":false,"Expected":"Unknown"}
+]

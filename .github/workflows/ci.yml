@@ -24,6 +24,9 @@ jobs:
       - name: Test
         run: dotnet test AutostartAudit.sln --no-build -c Release --logger "trx;LogFileName=tests.trx"
 
+      - name: Read-only Windows native probe smoke test
+        run: dotnet test tests/AutostartAudit.Core.Tests/AutostartAudit.Core.Tests.csproj --no-build -c Release --filter "Category=WindowsNativeSmoke" --logger "trx;LogFileName=windows-native-smoke.trx"
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4

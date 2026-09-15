@@ -64,6 +64,16 @@ AutostartAudit.sln
 - **Integration:** unelevated run asserting each source reports either data or explicit capability state (never silent-empty); machine-scope behaviors (services/HKLM quarantine, elevation prompt) are marked manual-bench and documented as such — CI never claims them.
 - **Observation-truth boundary:** an unsignable, denied, or unreadable target is `unverified`/`unknown`, never "malicious" or "absent." Tests assert the three-state distinction.
 
+### Issue #3 implementation note
+
+M2 uses dependency-free Task Scheduler COM traversal and direct, read-only SCM
+queries. Fixture tests cover nested/hidden enumeration inputs, multiple and
+unsupported actions, malformed XML/binary evidence, automatic-delayed services,
+elevation transitions, and partial access denial. The Windows CI smoke test
+executes the native probes but cannot prove all protected scopes were readable;
+only the emitted per-scope observations make that claim. No Windows-native local
+test result is claimed by the Linux .NET SDK container run.
+
 ## Packaging / distribution
 
 - Portable single-file exe (self-contained, unsigned preview builds in CI artifacts).

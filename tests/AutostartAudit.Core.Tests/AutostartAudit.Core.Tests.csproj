@@ -15,4 +15,7 @@
     <ProjectReference Include="..\..\src\AutostartAudit.Core\AutostartAudit.Core.csproj" />
     <ProjectReference Include="..\..\src\AutostartAudit.Cli\AutostartAudit.Cli.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

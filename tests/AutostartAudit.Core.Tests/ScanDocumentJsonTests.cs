@@ -24,7 +24,7 @@ public class ScanDocumentJsonTests
     }
 
     [Fact]
-    public void Engine_DefaultScan_AlwaysReportsBothDefaultSources()
+    public void Engine_DefaultScan_AlwaysReportsAllDefaultSources()
     {
         // Host-independent: whatever the OS, the default scan must list both
         // sources with an honest capability (never silently missing).
@@ -32,6 +32,8 @@ public class ScanDocumentJsonTests
         var kinds = doc.Sources.Select(s => s.SourceKind).ToList();
         Assert.Contains(RunKeySource.Kind, kinds);
         Assert.Contains(StartupFolderSource.Kind, kinds);
+        Assert.Contains(ScheduledTaskSource.Kind, kinds);
+        Assert.Contains(ServiceSource.Kind, kinds);
         using var _ = JsonDocument.Parse(doc.ToJson()); // throws if invalid JSON
     }
 

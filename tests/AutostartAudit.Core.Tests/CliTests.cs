@@ -84,7 +84,33 @@ public class CliTests
         Assert.Contains("1 entry", stdout);
         Assert.Contains("2 sources", stdout);
         Assert.Contains("scan-complete: no", stdout);
+        Assert.Contains("unread sources: startup-folder", stdout);
         Assert.Equal(string.Empty, stderr.Trim());
+    }
+
+    [Fact]
+    public void ScanSummary_NamesUnreadScopes()
+    {
+        var scan = FixedScan() with
+        {
+            Sources = new[]
+            {
+                new SourceReport
+                {
+                    SourceKind = "scheduled-task",
+                    Capability = SourceCapability.Partial,
+                    Observations = new[]
+                    {
+                        new SourceObservation { Id = @"\Microsoft\Protected", Health = ObservationHealth.Denied, Detail = "access denied" },
+                    },
+                },
+            },
+        };
+
+        var (_, stdout, _) = RunWith(() => scan, "scan");
+
+        Assert.Contains(@"scheduled-task [partial]", stdout);
+        Assert.Contains(@"\Microsoft\Protected [denied]: access denied", stdout);
     }
 
     [Fact]

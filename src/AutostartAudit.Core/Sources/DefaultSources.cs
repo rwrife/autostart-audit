@@ -14,10 +14,13 @@ public static class DefaultSources
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
+            var elevation = new WindowsElevationProbe();
             return new IAutoStartSource[]
             {
                 new RunKeySource(new WindowsRegistryProbe()),
                 new StartupFolderSource(new SystemFolderProbe(), WindowsStartupFolders.Resolve()),
+                new ScheduledTaskSource(new WindowsScheduledTaskProbe(), elevation),
+                new ServiceSource(new WindowsServiceProbe(), elevation),
             };
         }
 
@@ -25,6 +28,8 @@ public static class DefaultSources
         {
             new UnsupportedSource(RunKeySource.Kind, "registry sources require Windows"),
             new UnsupportedSource(StartupFolderSource.Kind, "startup folders require Windows"),
+            new UnsupportedSource(ScheduledTaskSource.Kind, "Task Scheduler COM requires Windows"),
+            new UnsupportedSource(ServiceSource.Kind, "Service Control Manager requires Windows"),
         };
     }
 }
