@@ -65,7 +65,9 @@ Autostart Audit is an **audit and quarantine tool**, not a cleanup product. It n
 
 ## Current status and milestones
 
-**Status:** documentation & backlog only. No code, build, installer, or test results exist yet — see the issue backlog for the execution order.
+**Status:** the headless .NET 8 scan engine and CLI implement the M1 sources plus
+read-only scheduled-task and automatic-service inventory. The desktop UI,
+signature verification, snapshots, and quarantine remain future milestones.
 
 1. M1 — project skeleton, CI, scan engine for Run keys + startup folders (read-only).
 2. M2 — scheduled tasks + services scanning, elevation-aware capability states.
@@ -73,11 +75,49 @@ Autostart Audit is an **audit and quarantine tool**, not a cleanup product. It n
 4. M4 — snapshot diff and quarantine/restore journal.
 5. M5 — export, packaging (portable + MSIX), accessibility pass.
 
-## Development quickstart (planned)
+## M2 scan coverage and limits
+
+- Scheduled tasks are read through Task Scheduler 2.0 COM. The scan walks the
+  root and every nested folder and requests hidden folders/tasks. Tasks with a
+  `LogonTrigger` or `BootTrigger` are included, including disabled tasks. Every
+  `Exec` action contributes its command as target evidence; other action kinds
+  remain visible as unsupported evidence instead of being discarded. The raw
+  task XML, scheduler state, enabled state, and trigger summary are retained.
+- Services are read through the Service Control Manager with enumerate and
+  query-config access only. `Automatic` and delayed-automatic services retain
+  service name, display name, current state, exact binary command line, and
+  normalized start type. If delayed-start configuration is unreadable, the known
+  automatic entry stays visible as `automatic-delay-unknown`. Ambiguous unquoted
+  paths and malformed commands retain raw evidence with an unknown target rather
+  than guessing an executable. Manual, disabled, boot, and system-start drivers are
+  outside this source's inventory.
+- Both native probes preserve entries from readable scopes while reporting each
+  denied or unknown folder/service configuration. An unelevated token makes the
+  source explicitly incomplete because protected scopes may be invisible.
+  Elevation removes only that uncertainty: individual failures still keep the
+  source partial or denied.
+- Entry identity is normalized source + native key/path + target executable
+  path(s), never a friendly display name. Signing remains `unverified` until
+  the Authenticode milestone; it is never inferred to be `unsigned`.
+- These two sources invoke only read operations. Their public scan interfaces
+  expose enumeration, not task/service mutation.
+
+## Development quickstart
 
 - Stack: .NET 8 + WPF (Windows-only desktop), built with `dotnet build` and `dotnet test`.
-- Scaffold step will add a solution with `src/AutostartAudit` and `tests/`, plus a CI workflow running build + unit tests on `windows-latest`.
-- Elevation-dependent code paths are verified by integration tests with explicit capability fixtures; unit tests run unelevated.
+- Build with `dotnet build AutostartAudit.sln -c Release` and test with
+  `dotnet test AutostartAudit.sln -c Release`.
+- Unit tests use synthetic task XML and service configuration snapshots for deterministic elevation,
+  denial, malformed-input, and partial-enumeration behavior. Windows CI also
+  runs a read-only smoke test requiring successful Task Scheduler folder enumeration,
+  SCM enumeration with service data, and a process-token read. A fake COM-dispatch
+  fixture separately exercises the production recursive traversal and API flags.
+- The native smoke test was not run on a Windows machine during issue #3 local
+  development; local Linux results validate the cross-platform Core/CLI build and
+  fixture tests only, with the Windows smoke explicitly skipped. A passing hosted
+  Windows smoke establishes basic API execution, not an interactive WPF test or
+  full visibility of protected scopes. Actual hosted-token elevation may vary;
+  deterministic elevated/unelevated behavior is tested through injected probes.
 
 ## License
 

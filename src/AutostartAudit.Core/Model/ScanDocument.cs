@@ -37,8 +37,33 @@ public sealed record ScanDocument
 
     public string ToJson() => JsonSerializer.Serialize(this, JsonOptions.Default);
 
-    public string ToTextSummary() =>
-        $"autostart-audit scan: {Entries.Count} entr{(Entries.Count == 1 ? "y" : "ies")}, "
-        + $"{Sources.Count} source{(Sources.Count == 1 ? "" : "s")} reported, "
-        + $"scan-complete: {(ScanComplete ? "yes" : "no")}";
+    public string ToTextSummary()
+    {
+        var summary = new System.Text.StringBuilder(
+            $"autostart-audit scan: {Entries.Count} entr{(Entries.Count == 1 ? "y" : "ies")}, "
+            + $"{Sources.Count} source{(Sources.Count == 1 ? "" : "s")} reported, "
+            + $"scan-complete: {(ScanComplete ? "yes" : "no")}");
+        var unread = Sources.Where(source => source.Capability != SourceCapability.Scanned).ToList();
+        if (unread.Count > 0)
+        {
+            summary.AppendLine();
+            summary.Append("unread sources: ");
+            summary.Append(string.Join(", ", unread.Select(source => source.SourceKind)));
+            foreach (var source in unread)
+            {
+                summary.AppendLine();
+                summary.Append($"  {source.SourceKind} [{source.Capability.ToString().ToLowerInvariant()}]");
+                if (!string.IsNullOrWhiteSpace(source.Detail))
+                    summary.Append($": {source.Detail}");
+                foreach (var observation in source.Observations.Where(o => o.Health != ObservationHealth.Ok))
+                {
+                    summary.AppendLine();
+                    summary.Append($"    {observation.Id} [{observation.Health.ToString().ToLowerInvariant()}]");
+                    if (!string.IsNullOrWhiteSpace(observation.Detail))
+                        summary.Append($": {observation.Detail}");
+                }
+            }
+        }
+        return summary.ToString();
+    }
 }

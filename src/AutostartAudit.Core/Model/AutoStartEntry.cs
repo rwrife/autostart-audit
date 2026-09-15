@@ -19,11 +19,29 @@ public sealed record AutoStartEntry
     /// <summary>Human-facing label. Presentation only; not an identity.</summary>
     public required string DisplayName { get; init; }
 
+    /// <summary>Native source name/path when it differs from the friendly display label.</summary>
+    public string? SourceName { get; init; }
+
     /// <summary>Target executable/script paths extracted from the raw value.</summary>
     public required IReadOnlyList<string> TargetPaths { get; init; }
 
     /// <summary>Verbatim value as read from the source, for exact restore.</summary>
     public required string RawValueSnapshot { get; init; }
+
+    /// <summary>Native runtime/configuration state, when exposed by the source.</summary>
+    public string? State { get; init; }
+
+    /// <summary>Native enabled state when the source exposes it separately.</summary>
+    public bool? Enabled { get; init; }
+
+    /// <summary>Human-readable trigger types for scheduled tasks.</summary>
+    public string? TriggerSummary { get; init; }
+
+    /// <summary>Normalized service start type.</summary>
+    public string? StartType { get; init; }
+
+    /// <summary>Additional source evidence, including unsupported-but-observed constructs.</summary>
+    public IReadOnlyList<string> Evidence { get; init; } = Array.Empty<string>();
 
     public required SigningStatus Signing { get; init; }
 

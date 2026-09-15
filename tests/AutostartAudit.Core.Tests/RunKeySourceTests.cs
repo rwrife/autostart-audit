@@ -156,4 +156,15 @@ public class RunKeySourceTests
 
         Assert.Equal(2, result.Entries.Select(e => e.StableKey).Distinct().Count());
     }
+
+    [Fact]
+    public void StableIdentityIncludesTargetPath()
+    {
+        AutoStartEntry Entry(string target) => new RunKeySource(new FakeRegistryProbe(keys: new()
+        {
+            [HkcuRun] = FakeRegistryProbe.Snap(HkcuRun, ("SameValue", target)),
+        })).Scan(ScanContext.Default).Entries.Single();
+
+        Assert.NotEqual(Entry("a.exe").StableKey, Entry("b.exe").StableKey);
+    }
 }

@@ -14,6 +14,24 @@ public static class StableKey
     public static string Build(string sourceKind, string scope, string rawId) =>
         Normalize($"{sourceKind}|{scope}|{rawId}");
 
+    /// <summary>
+    /// Builds an identity from the source key and normalized target paths.
+    /// Friendly/display names are deliberately excluded.
+    /// </summary>
+    public static string BuildWithTargets(
+        string sourceKind,
+        string scope,
+        string rawId,
+        IEnumerable<string> targetPaths)
+    {
+        var paths = targetPaths
+            .Select(Normalize)
+            .Where(path => path.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(path => path, StringComparer.Ordinal);
+        return Build(sourceKind, scope, $"{rawId}|{string.Join("|", paths)}");
+    }
+
     /// <summary>Lower-cases, trims, and collapses runs of whitespace.</summary>
     public static string Normalize(string value)
     {
