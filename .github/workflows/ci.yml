@@ -27,6 +27,9 @@ jobs:
       - name: Read-only Windows native probe smoke test
         run: dotnet test tests/AutostartAudit.Core.Tests/AutostartAudit.Core.Tests.csproj --no-build -c Release --filter "Category=WindowsNativeSmoke" --logger "trx;LogFileName=windows-native-smoke.trx"
 
+      - name: Native local-only Authenticode integration (embedded kernel32 signature)
+        run: dotnet test tests/AutostartAudit.Core.Tests/AutostartAudit.Core.Tests.csproj --no-build -c Release --filter "Category=WindowsAuthenticode" --logger "console;verbosity=detailed" --logger "trx;LogFileName=windows-authenticode.trx"
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4

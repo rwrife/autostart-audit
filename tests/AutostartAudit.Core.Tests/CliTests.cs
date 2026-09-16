@@ -85,7 +85,41 @@ public class CliTests
         Assert.Contains("2 sources", stdout);
         Assert.Contains("scan-complete: no", stdout);
         Assert.Contains("unread sources: startup-folder", stdout);
+        Assert.Contains("MyApp", stdout);
+        Assert.Contains("unverified", stdout);
+        Assert.Contains("publisher: -", stdout);
+        Assert.Contains("local-only Authenticode", stdout);
         Assert.Equal(string.Empty, stderr.Trim());
+    }
+
+    [Fact]
+    public void ScanJson_ExposesLocalOnlyLimitAndPerTargetResults()
+    {
+        var signed = FixedScan() with
+        {
+            Entries = new[]
+            {
+                FixedScan().Entries[0] with
+                {
+                    Signing = SigningStatus.Signed,
+                    SignerSubject = "CN=Publisher",
+                    SigningAggregation = SigningAggregation.Single,
+                    TargetSignatures = new[]
+                    {
+                        new TargetSignature { Path = @"C:\Apps\MyApp\myapp.exe", Status = SigningStatus.Signed, Publisher = "CN=Publisher" },
+                    },
+                },
+            },
+        };
+
+        var (_, stdout, _) = RunWith(() => signed, "scan", "--json");
+        using var json = JsonDocument.Parse(stdout);
+
+        Assert.Contains("local", json.RootElement.GetProperty("signatureVerificationPolicy").GetString(), StringComparison.OrdinalIgnoreCase);
+        var entry = json.RootElement.GetProperty("entries")[0];
+        Assert.Equal("signed", entry.GetProperty("signing").GetString());
+        Assert.Equal("CN=Publisher", entry.GetProperty("signerSubject").GetString());
+        Assert.Equal("signed", entry.GetProperty("targetSignatures")[0].GetProperty("status").GetString());
     }
 
     [Fact]

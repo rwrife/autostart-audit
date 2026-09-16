@@ -65,17 +65,17 @@ Autostart Audit is an **audit and quarantine tool**, not a cleanup product. It n
 
 ## Current status and milestones
 
-**Status:** the headless .NET 8 scan engine and CLI implement the M1 sources plus
-read-only scheduled-task and automatic-service inventory. The desktop UI,
-signature verification, snapshots, and quarantine remain future milestones.
+**Status:** the headless .NET 8 scan engine and CLI implement the M1/M2 sources
+plus local Authenticode evidence. The desktop UI, snapshots, and quarantine
+remain future milestones.
 
 1. M1 — project skeleton, CI, scan engine for Run keys + startup folders (read-only).
 2. M2 — scheduled tasks + services scanning, elevation-aware capability states.
-3. M3 — Authenticode verification and publisher presentation.
+3. M3 — Authenticode verification and publisher presentation. **Implemented.**
 4. M4 — snapshot diff and quarantine/restore journal.
 5. M5 — export, packaging (portable + MSIX), accessibility pass.
 
-## M2 scan coverage and limits
+## Scan and signature coverage and limits
 
 - Scheduled tasks are read through Task Scheduler 2.0 COM. The scan walks the
   root and every nested folder and requests hidden folders/tasks. Tasks with a
@@ -97,27 +97,62 @@ signature verification, snapshots, and quarantine remain future milestones.
   Elevation removes only that uncertainty: individual failures still keep the
   source partial or denied.
 - Entry identity is normalized source + native key/path + target executable
-  path(s), never a friendly display name. Signing remains `unverified` until
-  the Authenticode milestone; it is never inferred to be `unsigned`.
+  path(s), never a friendly display name. Signature enrichment does not alter
+  identity, observation health, or source capability.
 - These two sources invoke only read operations. Their public scan interfaces
   expose enumeration, not task/service mutation.
+
+### Local Authenticode evidence
+
+- Every observed target is evaluated through `WinVerifyTrust` on Windows. The
+  four statuses are `signed`, `unsigned`, `invalidSignature`, and `unverified`.
+  A signer subject is emitted as the publisher only for `signed`; missing,
+  locked, unreadable, malformed, non-local, and unknown native results stay
+  `unverified`. In particular, `TRUST_E_SUBJECT_FORM_UNKNOWN` is not treated as
+  proof that a file is unsigned.
+- Verification is strictly local. Revocation checking is disabled and
+  `WTD_CACHE_ONLY_URL_RETRIEVAL` is set, so the trust provider does not perform
+  outbound CRL, OCSP, AIA, or other certificate retrieval. This means a result
+  describes the currently available local Windows trust state, not fresh
+  online revocation status or a security verdict. JSON and text output repeat
+  this limitation on every scan.
+- UNC/device paths and mapped remote drives are rejected before file reads.
+  Paths traversing any reparse point are conservatively left `unverified`, even
+  when the reparse point may resolve locally. Relative targets are also
+  `unverified`; the scanner does not guess a working directory or search path.
+- Results are cached by normalized path, file identity, file size, last-write
+  timestamp, and a SHA-256 content hash read from the protected open handle.
+  Stable root-to-parent directory handles deny write and delete sharing so path
+  components cannot be mutated as reparse points, renamed, or deleted while the
+  final file is opened. Those handles and the read-only-shared file handle
+  remain held through hashing, WinTrust, and the cache decision. Any changed
+  content or metadata invalidates the cached result.
+- Each JSON entry includes authoritative `targetSignatures`. Entry-level
+  `signing` is `single`-target or uniform evidence only. Different statuses, or
+  different publishers across multiple signed targets, are explicitly marked
+  with `signingAggregation: "mixed"`; the entry status becomes `unverified`
+  and its publisher is omitted rather than inventing an aggregate publisher.
+- The JSON envelope additions are backward-compatible extensions: consumers
+  must continue to ignore unknown properties. New output canonically writes
+  `invalidSignature`; deserialization also accepts the legacy `invalid` value.
+  `signatureVerificationPolicy`, `signingAggregation`, and `targetSignatures`
+  are additive fields rather than a schema-version replacement.
 
 ## Development quickstart
 
 - Stack: .NET 8 + WPF (Windows-only desktop), built with `dotnet build` and `dotnet test`.
 - Build with `dotnet build AutostartAudit.sln -c Release` and test with
   `dotnet test AutostartAudit.sln -c Release`.
-- Unit tests use synthetic task XML and service configuration snapshots for deterministic elevation,
-  denial, malformed-input, and partial-enumeration behavior. Windows CI also
-  runs a read-only smoke test requiring successful Task Scheduler folder enumeration,
-  SCM enumeration with service data, and a process-token read. A fake COM-dispatch
-  fixture separately exercises the production recursive traversal and API flags.
-- The native smoke test was not run on a Windows machine during issue #3 local
-  development; local Linux results validate the cross-platform Core/CLI build and
-  fixture tests only, with the Windows smoke explicitly skipped. A passing hosted
-  Windows smoke establishes basic API execution, not an interactive WPF test or
-  full visibility of protected scopes. Actual hosted-token elevation may vary;
-  deterministic elevated/unelevated behavior is tested through injected probes.
+- Unit tests use synthetic source snapshots and injected file/trust boundaries
+  for deterministic elevation, denial, malformed-input, trust-code, cache, and
+  multi-target behavior. Windows CI separately verifies the embedded signature
+  on `%SystemRoot%\System32\kernel32.dll` and emits a `BENCH-VERIFIED` line only
+  after the live signed/publisher assertions pass. That test explicitly skips
+  on Linux; a Linux skip is not native verification evidence.
+- A passing hosted Windows integration test establishes that the native API and
+  local policy worked for that OS file on that runner. It does not claim manual
+  bench testing, current online revocation, full security verification,
+  interactive WPF coverage, or visibility into every protected startup scope.
 
 ## License
 

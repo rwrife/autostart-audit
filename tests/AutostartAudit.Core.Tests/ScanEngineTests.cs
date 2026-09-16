@@ -1,5 +1,6 @@
 using AutostartAudit.Core.Model;
 using AutostartAudit.Core.Scan;
+using AutostartAudit.Core.Signatures;
 
 namespace AutostartAudit.Core.Tests;
 
@@ -21,6 +22,32 @@ internal sealed class StubSource : IAutoStartSource
 
 public class ScanEngineTests
 {
+    [Fact]
+    public void SignatureEnrichment_PreservesIdentityObservationAndSourceCapability()
+    {
+        var original = new AutoStartEntry
+        {
+            SourceKind = "a", Scope = "machine", StableKey = "a|machine|stable", DisplayName = "Friendly",
+            TargetPaths = new[] { @"C:\target.exe" }, RawValueSnapshot = "raw",
+            Signing = SigningStatus.Unverified, Observation = ObservationHealth.Unknown,
+        };
+        var doc = ScanEngine.ScanAll(new IAutoStartSource[]
+        {
+            new StubSource("a", _ => new SourceScanResult
+            {
+                Entries = new[] { original },
+                Observations = new[] { new SourceObservation { Id = "scope", Health = ObservationHealth.Ok } },
+            }),
+        }, signatureVerifier: new FixedSignatureVerifier());
+
+        var entry = Assert.Single(doc.Entries);
+        Assert.Equal(original.StableKey, entry.StableKey);
+        Assert.Equal(original.Observation, entry.Observation);
+        Assert.Equal(SourceCapability.Scanned, Assert.Single(doc.Sources).Capability);
+        Assert.Equal(SigningStatus.Signed, entry.Signing);
+        Assert.Equal("CN=Test", entry.SignerSubject);
+    }
+
     [Fact]
     public void AllSourcesScanned_CompletenessTrue_EntriesAggregated()
     {
@@ -131,4 +158,9 @@ public class ScanEngineTests
         Assert.Equal("denied", obs[0].GetProperty("health").GetString());
         Assert.Equal("elevate", obs[0].GetProperty("detail").GetString());
     }
+}
+
+internal sealed class FixedSignatureVerifier : ISignatureVerifier
+{
+    public SignatureVerification Verify(string path) => new(SigningStatus.Signed, "CN=Test");
 }

@@ -8,9 +8,13 @@ namespace AutostartAudit.Core.Tests;
 public class ScanDocumentJsonTests
 {
     [Fact]
-    public void EmptyDocument_SerializesToExactEnvelope()
+    public void EmptyDocument_SerializesEnvelopeWithSignaturePolicy()
     {
-        Assert.Equal("{\"entries\":[],\"sources\":[],\"scanComplete\":false}", ScanDocument.Empty.ToJson());
+        using var parsed = JsonDocument.Parse(ScanDocument.Empty.ToJson());
+        Assert.Equal(0, parsed.RootElement.GetProperty("entries").GetArrayLength());
+        Assert.Equal(0, parsed.RootElement.GetProperty("sources").GetArrayLength());
+        Assert.False(parsed.RootElement.GetProperty("scanComplete").GetBoolean());
+        Assert.Contains("local-only", parsed.RootElement.GetProperty("signatureVerificationPolicy").GetString());
     }
 
     [Fact]
@@ -21,6 +25,35 @@ public class ScanDocumentJsonTests
         Assert.Empty(parsed.Entries);
         Assert.Empty(parsed.Sources);
         Assert.False(parsed.ScanComplete);
+    }
+
+    [Fact]
+    public void LegacyInvalidSigning_Deserializes_AndSerializesCanonically()
+    {
+        const string legacy = """
+            {
+              "entries": [{
+                "sourceKind": "run-key",
+                "scope": "user",
+                "stableKey": "legacy",
+                "displayName": "legacy",
+                "targetPaths": ["C:\\legacy.exe"],
+                "rawValueSnapshot": "legacy",
+                "signing": "invalid",
+                "observation": "ok"
+              }],
+              "sources": [],
+              "scanComplete": false
+            }
+            """;
+
+        var parsed = JsonSerializer.Deserialize<ScanDocument>(legacy, JsonOptions.Default);
+
+        var entry = Assert.Single(Assert.IsType<ScanDocument>(parsed).Entries);
+        Assert.Equal(SigningStatus.InvalidSignature, entry.Signing);
+        var canonical = JsonSerializer.Serialize(parsed, JsonOptions.Default);
+        Assert.Contains("\"signing\":\"invalidSignature\"", canonical, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"signing\":\"invalid\"", canonical, StringComparison.Ordinal);
     }
 
     [Fact]
