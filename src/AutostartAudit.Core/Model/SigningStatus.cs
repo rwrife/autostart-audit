@@ -15,7 +15,7 @@ public enum SigningStatus
     Unsigned,
 
     /// <summary>Signature present but invalid according to local chain evaluation.</summary>
-    Invalid,
+    InvalidSignature,
 
     /// <summary>
     /// Not checked or not checkable (missing file, locked, remote path,

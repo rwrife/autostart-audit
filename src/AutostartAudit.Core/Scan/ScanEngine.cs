@@ -1,4 +1,5 @@
 using AutostartAudit.Core.Model;
+using AutostartAudit.Core.Signatures;
 
 namespace AutostartAudit.Core.Scan;
 
@@ -10,9 +11,13 @@ namespace AutostartAudit.Core.Scan;
 public static class ScanEngine
 {
     /// <summary>Runs the given sources. Used by tests and by hosts that assemble their own source list.</summary>
-    public static ScanDocument ScanAll(IReadOnlyList<IAutoStartSource> sources, ScanContext? context = null)
+    public static ScanDocument ScanAll(
+        IReadOnlyList<IAutoStartSource> sources,
+        ScanContext? context = null,
+        ISignatureVerifier? signatureVerifier = null)
     {
         context ??= ScanContext.Default;
+        signatureVerifier ??= SignatureVerifierFactory.CreateForCurrentOS();
         var entries = new List<AutoStartEntry>();
         var reports = new List<SourceReport>();
 
@@ -37,7 +42,7 @@ public static class ScanEngine
             }
 
             reports.Add(Report(source.SourceKind, result));
-            entries.AddRange(result.Entries);
+            entries.AddRange(result.Entries.Select(entry => SignatureEnricher.Enrich(entry, signatureVerifier)));
         }
 
         return new ScanDocument

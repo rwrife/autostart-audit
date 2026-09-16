@@ -45,8 +45,20 @@ public sealed record AutoStartEntry
 
     public required SigningStatus Signing { get; init; }
 
+    /// <summary>Whether the entry status is a single, uniform, mixed, or absent-target result.</summary>
+    public SigningAggregation SigningAggregation { get; init; } = SigningAggregation.NoTarget;
+
+    /// <summary>Authoritative per-target signature evidence; avoids lossy multi-target aggregation.</summary>
+    public IReadOnlyList<TargetSignature> TargetSignatures { get; init; } = Array.Empty<TargetSignature>();
+
+    private readonly string? _signerSubject;
+
     /// <summary>Signer subject when <see cref="Signing"/> is <see cref="SigningStatus.Signed"/>; otherwise null.</summary>
-    public string? SignerSubject { get; init; }
+    public string? SignerSubject
+    {
+        get => Signing == SigningStatus.Signed ? _signerSubject : null;
+        init => _signerSubject = value;
+    }
 
     /// <summary>Health of this single observation (read ok, denied, partial...).</summary>
     public required ObservationHealth Observation { get; init; }

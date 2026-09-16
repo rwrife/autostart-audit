@@ -3,11 +3,13 @@ using System.Text.Json;
 namespace AutostartAudit.Core.Model;
 
 /// <summary>
-/// The complete result of one scan run. Serialization of <see cref="Empty"/>
-/// is exactly <c>{"entries":[],"sources":[]}</c>.
+/// The complete result of one scan run, including the local-only signature policy.
 /// </summary>
 public sealed record ScanDocument
 {
+    public const string LocalOnlySignaturePolicy =
+        "local-only Authenticode chain evaluation; no outbound CRL, OCSP, or certificate retrieval. Unverified does not mean unsigned.";
+
     /// <summary>Every entry observed, across all sources.</summary>
     public required IReadOnlyList<AutoStartEntry> Entries { get; init; }
 
@@ -21,6 +23,9 @@ public sealed record ScanDocument
     /// evidence of a clean machine.
     /// </summary>
     public required bool ScanComplete { get; init; }
+
+    /// <summary>The verification boundary disclosed with every serialized scan.</summary>
+    public string SignatureVerificationPolicy { get; init; } = LocalOnlySignaturePolicy;
 
     /// <summary>
     /// A document with nothing observed. Only legitimately produced by the
@@ -43,6 +48,20 @@ public sealed record ScanDocument
             $"autostart-audit scan: {Entries.Count} entr{(Entries.Count == 1 ? "y" : "ies")}, "
             + $"{Sources.Count} source{(Sources.Count == 1 ? "" : "s")} reported, "
             + $"scan-complete: {(ScanComplete ? "yes" : "no")}");
+        summary.AppendLine();
+        summary.Append($"signature policy: {SignatureVerificationPolicy}");
+        foreach (var entry in Entries)
+        {
+            summary.AppendLine();
+            summary.Append($"entry: {entry.DisplayName} | signing: {Wire(entry.Signing)} | publisher: {entry.SignerSubject ?? "-"} | aggregation: {Wire(entry.SigningAggregation)}");
+            foreach (var target in entry.TargetSignatures)
+            {
+                summary.AppendLine();
+                summary.Append($"  target: {target.Path} | signing: {Wire(target.Status)} | publisher: {target.Publisher ?? "-"}");
+                if (!string.IsNullOrWhiteSpace(target.Detail))
+                    summary.Append($" | detail: {target.Detail}");
+            }
+        }
         var unread = Sources.Where(source => source.Capability != SourceCapability.Scanned).ToList();
         if (unread.Count > 0)
         {
@@ -65,5 +84,11 @@ public sealed record ScanDocument
             }
         }
         return summary.ToString();
+    }
+
+    private static string Wire<T>(T value) where T : struct, Enum
+    {
+        var text = value.ToString();
+        return char.ToLowerInvariant(text[0]) + text[1..];
     }
 }

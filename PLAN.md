@@ -74,6 +74,29 @@ executes the native probes but cannot prove all protected scopes were readable;
 only the emitted per-scope observations make that claim. No Windows-native local
 test result is claimed by the Linux .NET SDK container run.
 
+### Issue #4 implementation note
+
+M3 uses an injectable `ISignatureVerifier` and a separate injectable
+`IWinVerifyTrust` boundary. Native verification holds stable root-to-parent
+directory handles that deny write/delete sharing plus one read-only-shared local
+file handle through metadata, SHA-256 hashing, trust evaluation, and the cache
+decision. It caches by normalized path + native file identity + size +
+last-write time + content hash, closes WinTrust state in `finally`, and retains
+signer subjects only for successful signed results. Only
+`TRUST_E_NOSIGNATURE` is affirmative unsigned evidence; malformed or unfamiliar
+trust results, including `TRUST_E_FAIL`, fail closed to `unverified`.
+
+Network/device paths, mapped remote drives, relative paths, and paths traversing
+reparse points are refused before trust evaluation. `WTD_REVOKE_NONE`,
+`WTD_REVOCATION_CHECK_NONE`, and `WTD_CACHE_ONLY_URL_RETRIEVAL` enforce the
+documented local-only boundary. Per-target results prevent multi-action entries
+from being represented by a misleading publisher or definitive mixed status.
+Windows CI verifies an embedded signature on `kernel32.dll`; non-Windows hosts
+explicitly skip that integration and cannot establish native success.
+The JSON envelope extensions are additive: existing readers must ignore unknown
+properties. Writers emit canonical `invalidSignature`, while readers continue
+to accept the legacy `invalid` signing value.
+
 ## Packaging / distribution
 
 - Portable single-file exe (self-contained, unsigned preview builds in CI artifacts).
