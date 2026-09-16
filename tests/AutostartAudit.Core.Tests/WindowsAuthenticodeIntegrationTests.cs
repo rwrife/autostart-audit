@@ -107,9 +107,17 @@ public sealed class WindowsAuthenticodeIntegrationTests
         var link = Path.Combine(temporary.Path, "link");
         CreateJunction(link, target.FullName);
 
-        var result = SignatureVerifierFactory.CreateForCurrentOS().Verify(Path.Combine(link, "app.exe"));
-
-        Assert.Equal(SigningStatus.Unverified, result.Status);
+        try
+        {
+            var result = SignatureVerifierFactory.CreateForCurrentOS().Verify(Path.Combine(link, "app.exe"));
+            Assert.Equal(SigningStatus.Unverified, result.Status);
+        }
+        finally
+        {
+            // Remove only the junction itself. Recursive .NET cleanup can treat
+            // a directory junction as a volume mount point and fail with ERROR_INVALID_PARAMETER.
+            Directory.Delete(link, recursive: false);
+        }
     }
 
     private static void CreateJunction(string link, string target)

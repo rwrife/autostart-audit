@@ -137,7 +137,10 @@ public sealed class WindowsSignatureFileAccess : ISignatureFileAccess
 
     private static SignatureFileOpenResult? OpenStableDirectory(string path, List<SafeFileHandle> handles)
     {
-        var handle = CreateFileW(path, FileReadAttributes, FileShareRead,
+        // Attribute-only opens do not participate in Windows sharing checks.
+        // FILE_READ_DATA is FILE_LIST_DIRECTORY for a directory: request it so
+        // the held handle actually excludes writers and rename/delete access.
+        var handle = CreateFileW(path, FileReadData | FileReadAttributes, FileShareRead,
             IntPtr.Zero, OpenExisting, FileFlagOpenReparsePoint | FileFlagBackupSemantics, IntPtr.Zero);
         if (handle.IsInvalid)
         {
