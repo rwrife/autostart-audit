@@ -59,7 +59,19 @@ public sealed class SnapshotStore : IDisposable
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
         _connection = new SqliteConnection($"Data Source={path}");
         _connection.Open();
-        Initialize();
+        try
+        {
+            Initialize();
+        }
+        catch
+        {
+            // If initialization fails (e.g. unsupported schema version), do
+            // not leak the open connection into the shared pool — otherwise
+            // the file stays locked and the caller cannot clean it up.
+            SqliteConnection.ClearPool(_connection);
+            _connection.Dispose();
+            throw;
+        }
     }
 
     private void Initialize()
