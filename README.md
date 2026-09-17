@@ -65,14 +65,15 @@ Autostart Audit is an **audit and quarantine tool**, not a cleanup product. It n
 
 ## Current status and milestones
 
-**Status:** the headless .NET 8 scan engine and CLI implement the M1/M2 sources
-plus local Authenticode evidence. The desktop UI, snapshots, and quarantine
-remain future milestones.
+**Status:** the headless .NET 8 scan engine and CLI implement the M1/M2/M3
+sources plus local Authenticode evidence and the M4 snapshot store + diff
+engine. The desktop UI, quarantine/restore journal, and packaging remain
+future milestones.
 
 1. M1 — project skeleton, CI, scan engine for Run keys + startup folders (read-only).
 2. M2 — scheduled tasks + services scanning, elevation-aware capability states.
 3. M3 — Authenticode verification and publisher presentation. **Implemented.**
-4. M4 — snapshot diff and quarantine/restore journal.
+4. M4 — snapshot diff (store, migration stub, new/removed/changed engine) **implemented**; quarantine/restore journal pending.
 5. M5 — export, packaging (portable + MSIX), accessibility pass.
 
 ## Scan and signature coverage and limits
@@ -137,6 +138,27 @@ remain future milestones.
   `invalidSignature`; deserialization also accepts the legacy `invalid` value.
   `signatureVerificationPolicy`, `signingAggregation`, and `targetSignatures`
   are additive fields rather than a schema-version replacement.
+
+### Snapshot store and diff
+
+- `scan --save` persists the scan as a snapshot in a SQLite database
+  (`Microsoft.Data.Sqlite`) under `%LOCALAPPDATA%\autostart-audit` and prints
+  the diff against the previous snapshot; `--json` wraps the result in a
+  capture envelope, and `--store <path>` relocates the database. A plain
+  `scan` never touches the store.
+- Diffs classify entries as Added / Removed / Changed / Unchanged with
+  before/after evidence. Change reasons are `target-path`, `signing-status`,
+  `enabled-state`, and `display-renamed`. Matching uses normalized identity
+  (source kind + scope + stable key + target paths), then pairs residual
+  entries by native source key, so a display rename or a moved target path
+  reads as one `changed` entry — never as an unrelated add plus remove.
+  Display names are never identity inputs.
+- The first capture against an empty store is reported as establishing a
+  baseline; it deliberately yields no diff, because "everything is new"
+  would misrepresent a first run as a mass change event.
+- The database carries a schema version. A store written by a newer build is
+  refused outright, and unknown older versions fail closed rather than being
+  reinterpreted under the current shape.
 
 ## Development quickstart
 

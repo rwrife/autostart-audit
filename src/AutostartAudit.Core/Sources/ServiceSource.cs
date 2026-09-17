@@ -91,6 +91,7 @@ public sealed class ServiceSource : IAutoStartSource
             SourceKind = Kind,
             Scope = "machine",
             StableKey = StableKey.BuildWithTargets(Kind, "machine", service.Name, targets),
+            NativeKey = StableKey.Normalize(service.Name),
             DisplayName = service.DisplayName,
             SourceName = service.Name,
             TargetPaths = targets,

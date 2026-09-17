@@ -78,6 +78,7 @@ public sealed class StartupFolderSource : IAutoStartSource
                     SourceKind = Kind,
                     Scope = scope,
                     StableKey = StableKey.Build(Kind, scope, fullPath),
+                    NativeKey = StableKey.Normalize(fullPath),
                     DisplayName = item.Name,
                     TargetPaths = new[] { fullPath },
                     // Verbatim filesystem facts serve as the raw snapshot.
