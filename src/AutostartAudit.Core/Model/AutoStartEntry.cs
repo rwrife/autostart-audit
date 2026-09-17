@@ -16,6 +16,15 @@ public sealed record AutoStartEntry
     /// <summary>Normalized stable key, e.g. "HKCU\Software\Microsoft\Windows\CurrentVersion\Run\MyApp".</summary>
     public required string StableKey { get; init; }
 
+    /// <summary>
+    /// Normalized native source identifier without target paths baked in
+    /// (registry key+value name, task path, service name, file path). The
+    /// snapshot diff matches on this so a target-path edit reads as one
+    /// <c>changed</c> entry with before/after evidence, never as
+    /// added+removed. Falls back to <see cref="StableKey"/> when absent.
+    /// </summary>
+    public string? NativeKey { get; init; }
+
     /// <summary>Human-facing label. Presentation only; not an identity.</summary>
     public required string DisplayName { get; init; }
 

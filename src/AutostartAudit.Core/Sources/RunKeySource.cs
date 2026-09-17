@@ -87,7 +87,8 @@ public sealed class RunKeySource : IAutoStartSource
         {
             SourceKind = Kind,
             Scope = scope,
-            StableKey = StableKey.BuildWithTargets(Kind, scope, $"{keyPath}\\{value.Name}", TargetPathParser.Parse(raw)),
+            StableKey = StableKey.BuildWithTargets(Kind, scope, $@"{keyPath}\{value.Name}", TargetPathParser.Parse(raw)),
+            NativeKey = StableKey.Normalize($@"{keyPath}\{value.Name}"),
             DisplayName = value.Name,
             TargetPaths = TargetPathParser.Parse(raw),
             RawValueSnapshot = raw,
