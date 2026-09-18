@@ -66,14 +66,16 @@ Autostart Audit is an **audit and quarantine tool**, not a cleanup product. It n
 ## Current status and milestones
 
 **Status:** the headless .NET 8 scan engine and CLI implement the M1/M2/M3
-sources plus local Authenticode evidence and the M4 snapshot store + diff
-engine. The desktop UI, quarantine/restore journal, and packaging remain
-future milestones.
+sources plus local Authenticode evidence, the M4 snapshot store + diff engine,
+and the M4 journal-first quarantine/restore core + CLI. The desktop UI and
+packaging remain future milestones.
 
 1. M1 — project skeleton, CI, scan engine for Run keys + startup folders (read-only).
 2. M2 — scheduled tasks + services scanning, elevation-aware capability states.
 3. M3 — Authenticode verification and publisher presentation. **Implemented.**
-4. M4 — snapshot diff (store, migration stub, new/removed/changed engine) **implemented**; quarantine/restore journal pending.
+4. M4 — snapshot diff (store, migration stub, new/removed/changed engine) and
+   journal-first quarantine/restore with exact inverse + change journal.
+   **Implemented.**
 5. M5 — export, packaging (portable + MSIX), accessibility pass.
 
 ## Scan and signature coverage and limits
@@ -138,6 +140,38 @@ future milestones.
   `invalidSignature`; deserialization also accepts the legacy `invalid` value.
   `signatureVerificationPolicy`, `signingAggregation`, and `targetSignatures`
   are additive fields rather than a schema-version replacement.
+
+### Quarantine & restore journal
+
+- The write path is **journal-first**: the strategy's exact-restore plan is
+  committed to the durable SQLite journal *before* any mutation, and a journal
+  failure aborts the operation with zero side effects. If no strategy can
+  describe an exact restore (drifted value, non-string registry kind, task in
+  a transitional state, ambiguous service, occupied quarantine name), the
+  entry is reported **read-only** and nothing is mutated (refuse-to-act).
+- Per-source strategies: Run-key values are renamed to `<name>.aa-quarantined`
+  with the original name+data journaled verbatim (string/expand-string only);
+  startup-folder files move into a managed `%LOCALAPPDATA%` quarantine folder
+  with original path+attributes+size journaled; scheduled tasks are disabled
+  with the previous enabled state journaled (XML untouched); Automatic /
+  Automatic-delayed services have their start type captured to `Disabled`
+  (delayed-auto flag journaled) while the running state is deliberately left
+  alone.
+- Every mutation and restore is followed by a post-state verification re-read;
+  a failed verification never marks the record successful. Restore performs
+  the exact inverse and refuses to clobber state that changed externally in
+  the meantime.
+- User-scope quarantines run unelevated. Machine-scope mutations are
+  delegated to a single-action elevated re-launch of this executable
+  (`run-record <id>`), which performs the whole mutation from the shared
+  journal — a declined UAC prompt leaves the entry untouched and the record
+  honestly `Pending`, never "quarantined" or "clean".
+- The journal (`%LOCALAPPDATA%\autostart-audit\journal.db`) records identity
+  (normalized source+key, never display name), strategy, before-state,
+  result, and restore status. Records left `Pending` mean the mutation outcome
+  was never established and are surfaced as such by `journal`.
+- CLI: `quarantine <native-key>` (identity-matched, never display-name),
+  `journal` (history), `restore <record-id>`.
 
 ### Snapshot store and diff
 

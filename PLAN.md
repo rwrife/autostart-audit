@@ -97,6 +97,36 @@ The JSON envelope extensions are additive: existing readers must ignore unknown
 properties. Writers emit canonical `invalidSignature`, while readers continue
 to accept the legacy `invalid` signing value.
 
+### Issue #6 implementation note
+
+M4 quarantine uses an `IQuarantineStrategy` per source kind behind a
+journal-first coordinator. The strategy `Plan` performs live re-reads and
+returns read-only (never throws) when an exact restore cannot be described;
+the coordinator commits the record via `IJournal.Begin` before calling
+`Execute`, so a journal failure performs zero mutation. Mutations verify their
+post-state by re-reading and fail closed otherwise (with registry rollback of
+the copied value where a half-state occurred). The `ServiceStartType`
+enum is journaled verbatim; only `Automatic`/`AutomaticDelayed` are accepted,
+and the delayed-auto flag round-trips through
+`ChangeServiceConfig2(SERVICE_CONFIG_DELAYED_AUTO_START_INFO)`.
+
+Machine-scope work uses single-action elevation: the parent journals, then
+re-launches the same executable elevated with `run-record <id>
+--journal <path>`; the child performs and durably records the whole mutation,
+so decline/crash cannot yield a partial write (the record stays `Pending`,
+which `journal` surfaces as unresolved state — never clean). Elevated child
+outcomes are decided from the durable journal, not the process exit signal.
+
+Round-trip contract tests per strategy run on all OSes against injected
+probes, temp-dir, and SQLite fixtures (quarantine → restore → byte/state-equal
+original), plus declined-elevation, journal-failure, drift, and external-
+takeover paths with injected faults. Windows CI additionally executes the
+native registry write boundary and a full HKCU Run strategy round-trip on a
+unique sandbox value it removes afterwards; the native task/service write
+probes compile but their round-trips require elevated machine scopes and are
+manual-bench items — CI never claims them. No Windows-native local test result
+is claimed by the Linux .NET SDK container run.
+
 ## Packaging / distribution
 
 - Portable single-file exe (self-contained, unsigned preview builds in CI artifacts).
