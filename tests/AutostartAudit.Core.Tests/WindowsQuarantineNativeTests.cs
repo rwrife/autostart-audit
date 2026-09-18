@@ -40,8 +40,10 @@ public class WindowsQuarantineNativeTests
         const string subKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
         const string data = @"%SystemRoot%\explorer.exe --aa-issue6-probe";
         DeleteProbeValues();
-        using (var runKey = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(subKey, writable: true)!)
-            runKey.SetValue(ProbeValueName, data, Microsoft.Win32.RegistryValueKind.ExpandString);
+        // The Run key can be absent on fresh runners; CreateSubKey returns the
+        // existing key when present (HKCU write, ephemeral CI VM).
+        using (var runKey = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(subKey)!)
+            runKey!.SetValue(ProbeValueName, data, Microsoft.Win32.RegistryValueKind.ExpandString);
 
         var strategy = new RunKeyQuarantineStrategy(new WindowsRegistryWriteProbe());
         try

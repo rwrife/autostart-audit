@@ -122,6 +122,14 @@ public class StartupFolderQuarantineStrategyTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_root, recursive: true); } catch (IOException) { }
+        try
+        {
+            // ReadOnly journaled attributes survive moves on Windows; clear
+            // them so temp cleanup succeeds on every OS.
+            foreach (var path in Directory.GetFiles(_root, "*", SearchOption.AllDirectories))
+                File.SetAttributes(path, FileAttributes.Normal);
+            Directory.Delete(_root, recursive: true);
+        }
+        catch (IOException) { }
     }
 }
