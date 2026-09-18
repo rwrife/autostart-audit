@@ -43,7 +43,7 @@ public sealed class ScheduledTaskSource : IAutoStartSource
                     SourceKind = Kind,
                     Scope = "machine",
                     StableKey = StableKey.BuildWithTargets(Kind, "machine", task.Path, parsed.TargetPaths),
-                    NativeKey = StableKey.Normalize(task.Path),
+                    NativeKey = task.Path,
                     DisplayName = task.Name,
                     SourceName = task.Path,
                     TargetPaths = parsed.TargetPaths,
