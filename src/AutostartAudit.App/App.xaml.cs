@@ -36,6 +36,13 @@ public partial class Application : System.Windows.Application
         try
         {
             var fixture = new FixtureScanService();
+            // Any dispatcher-side crash (binding, template, culture) is captured
+            // as a smoke failure with a report line instead of an unhandled crash.
+            DispatcherUnhandledException += (_, args) =>
+            {
+                failures.Add($"dispatcher exception: {args.Exception.GetType().Name}: {args.Exception.Message}");
+                args.Handled = true;
+            };
             var window = new MainWindow(fixture);
             var vm = window.ViewModel;
             vm.ExportPathRequested = _ => Task.FromResult<string?>(exportPath);

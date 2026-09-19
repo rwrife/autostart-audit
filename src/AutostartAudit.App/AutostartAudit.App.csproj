@@ -6,6 +6,11 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <RootNamespace>AutostartAudit.App</RootNamespace>
     <AssemblyName>autostart-audit-app</AssemblyName>
+    <!-- WPF data binding requires real cultures (XmlLanguage.GetSpecificCulture
+         throws under invariant mode — caught by the hosted WPF smoke). Core
+         stays invariant; this project is the app-host boundary. -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <PredefinedCulturesOnly>false</PredefinedCulturesOnly>
     <Description>Windows desktop UI for Autostart Audit (virtualized inventory, diff, journal, redacted export).</Description>
   </PropertyGroup>
   <ItemGroup>
