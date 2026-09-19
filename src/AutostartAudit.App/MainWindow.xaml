@@ -4,6 +4,10 @@
         Title="Autostart Audit" Height="720" Width="1180"
         WindowStartupLocation="CenterScreen"
         AutomationProperties.Name="Autostart Audit main window">
+    <Window.Resources>
+        <!-- Defined at window level so the window loads identically under app-level StartupUri, smoke-test construction, or any host. -->
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </Window.Resources>
     <Window.InputBindings>
         <KeyBinding Key="F5" Command="{Binding ScanCommand}"/>
         <KeyBinding Key="E" Modifiers="Control" Command="{Binding ExportCommand}"/>

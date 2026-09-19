@@ -35,8 +35,15 @@ jobs:
         env:
           AA_SMOKE_REPORT: ${{ github.workspace }}\ui-smoke-report.txt
         run: |
-          & "src/AutostartAudit.App/bin/Release/net8.0-windows/autostart-audit-app.exe" --smoke-test
+          Remove-Item -ErrorAction SilentlyContinue $env:AA_SMOKE_REPORT
+          # WinExe apps launch async from pwsh; Start-Process -Wait blocks until
+          # the smoke run exits so its exit code and report are authoritative.
+          $p = Start-Process -FilePath "src/AutostartAudit.App/bin/Release/net8.0-windows/autostart-audit-app.exe" `
+            -ArgumentList '--smoke-test' -Wait -PassThru -NoNewWindow
           Get-Content $env:AA_SMOKE_REPORT
+          if ($p.ExitCode -ne 0) { Write-Error "WPF smoke exited with code $($p.ExitCode)"; exit 1 }
+          $report = Get-Content $env:AA_SMOKE_REPORT -Raw
+          if ($report -notmatch 'UI SMOKE PASS') { Write-Error 'UI smoke report lacks PASS verdict'; exit 1 }
 
       - name: Upload UI smoke report
         if: always()
