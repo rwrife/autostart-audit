@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: [main]
+    tags: ['v*']
 
 jobs:
   build-test:
@@ -30,9 +31,57 @@ jobs:
       - name: Native local-only Authenticode integration (embedded kernel32 signature)
         run: dotnet test tests/AutostartAudit.Core.Tests/AutostartAudit.Core.Tests.csproj --no-build -c Release --filter "Category=WindowsAuthenticode" --logger "console;verbosity=detailed" --logger "trx;LogFileName=windows-authenticode.trx"
 
+      - name: Fixture-backed WPF UI smoke (no real-machine mutation)
+        env:
+          AA_SMOKE_REPORT: ${{ github.workspace }}\ui-smoke-report.txt
+        run: |
+          Remove-Item -ErrorAction SilentlyContinue $env:AA_SMOKE_REPORT
+          # WinExe apps launch async from pwsh; Start-Process -Wait blocks until
+          # the smoke run exits so its exit code and report are authoritative.
+          $p = Start-Process -FilePath "src/AutostartAudit.App/bin/Release/net8.0-windows/autostart-audit-app.exe" `
+            -ArgumentList '--smoke-test' -Wait -PassThru -NoNewWindow
+          Get-Content $env:AA_SMOKE_REPORT
+          if ($p.ExitCode -ne 0) { Write-Error "WPF smoke exited with code $($p.ExitCode)"; exit 1 }
+          $report = Get-Content $env:AA_SMOKE_REPORT -Raw
+          if ($report -notmatch 'UI SMOKE PASS') { Write-Error 'UI smoke report lacks PASS verdict'; exit 1 }
+
+      - name: Upload UI smoke report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-smoke-report
+          path: ui-smoke-report.txt
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-results
           path: '**/TestResults/*.trx'
+
+  portable-package:
+    # Self-contained single-file portable build published on version tags.
+    # Unsigned preview builds — code signing is an explicit open cost decision
+    # (PLAN.md); README discloses that the artifact is unsigned.
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Publish self-contained single-file portable build
+        run: >
+          dotnet publish src/AutostartAudit.App -c Release -r win-x64
+          --self-contained true -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -o portable
+
+      - name: Upload portable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: autostart-audit-portable-win-x64
+          path: portable/autostart-audit-app.exe

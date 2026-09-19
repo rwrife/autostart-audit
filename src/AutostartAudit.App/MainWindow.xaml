@@ -1,0 +1,164 @@
+<Window x:Class="AutostartAudit.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Autostart Audit" Height="720" Width="1180"
+        WindowStartupLocation="CenterScreen"
+        AutomationProperties.Name="Autostart Audit main window">
+    <Window.Resources>
+        <!-- Defined at window level so the window loads identically under app-level StartupUri, smoke-test construction, or any host. -->
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </Window.Resources>
+    <Window.InputBindings>
+        <KeyBinding Key="F5" Command="{Binding ScanCommand}"/>
+        <KeyBinding Key="E" Modifiers="Control" Command="{Binding ExportCommand}"/>
+        <KeyBinding Key="S" Modifiers="Control" Command="{Binding CaptureSnapshotCommand}"/>
+    </Window.InputBindings>
+    <DockPanel>
+        <!-- Toolbar: scan / snapshot / export. Keyboard: F5 scan, Ctrl+S snapshot, Ctrl+E export. -->
+        <ToolBarTray DockPanel.Dock="Top">
+            <ToolBar AutomationProperties.Name="Main toolbar">
+                <Button x:Name="ScanButton" Content="Rescan (F5)" Command="{Binding ScanCommand}"
+                        AutomationProperties.Name="Rescan auto-start sources"
+                        AutomationProperties.HelpText="Runs a read-only scan of every auto-start source"/>
+                <Button Content="Save snapshot + diff (Ctrl+S)" Command="{Binding CaptureSnapshotCommand}"
+                        AutomationProperties.Name="Save snapshot and show diff against previous snapshot"/>
+                <Separator/>
+                <Button Content="Export report (Ctrl+E)" Command="{Binding ExportCommand}"
+                        AutomationProperties.Name="Export JSON or Markdown report with path redaction"/>
+                <Separator/>
+                <TextBlock VerticalAlignment="Center" Margin="6,0" Text="Filter:"/>
+                <TextBox x:Name="SearchBox" Width="220" Text="{Binding SearchToken, UpdateSourceTrigger=PropertyChanged}"
+                         AutomationProperties.Name="Filter entries by name, source, target, publisher, or key"/>
+                <ComboBox Width="140" ItemsSource="{Binding AvailableSourceKinds}" SelectedItem="{Binding SourceFilter}"
+                          AutomationProperties.Name="Filter by source kind"/>
+                <ComboBox Width="130" ItemsSource="{Binding SigningFilterOptions}" SelectedItem="{Binding SigningFilter}"
+                          AutomationProperties.Name="Filter by signing status"/>
+                <ComboBox Width="100" ItemsSource="{Binding ScopeFilterOptions}" SelectedItem="{Binding ScopeFilter}"
+                          AutomationProperties.Name="Filter by scope"/>
+            </ToolBar>
+        </ToolBarTray>
+
+        <!-- Persistent scan-completeness footer: never let an incomplete scan look clean. -->
+        <StatusBar DockPanel.Dock="Bottom" AutomationProperties.Name="Scan completeness footer">
+            <StatusBarItem>
+                <TextBlock Text="{Binding ScanCompleteText}" FontWeight="SemiBold"
+                           AutomationProperties.Name="Scan completeness statement"/>
+            </StatusBarItem>
+            <Separator/>
+            <StatusBarItem>
+                <ItemsControl ItemsSource="{Binding SourceStatuses}"
+                              AutomationProperties.Name="Per-source capability summary">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Margin="0,0,10,0" Text="{Binding Display}"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StatusBarItem>
+        </StatusBar>
+
+        <TextBlock DockPanel.Dock="Bottom" Margin="8,2" TextWrapping="Wrap"
+                   Text="{Binding StatusMessage}"
+                   AutomationProperties.Name="Status message"
+                   AutomationProperties.LiveSetting="Assertive"/>
+
+        <TabControl AutomationProperties.Name="Main tabs">
+            <TabItem Header="Inventory" AutomationProperties.Name="Inventory tab">
+                <Grid>
+                    <DataGrid x:Name="InventoryGrid"
+                              ItemsSource="{Binding Entries}"
+                              SelectedItem="{Binding SelectedEntry}"
+                              AutoGenerateColumns="False" IsReadOnly="True"
+                              EnableRowVirtualization="True" VirtualizingPanel.IsVirtualizing="True"
+                              VirtualizingPanel.VirtualizationMode="Recycling"
+                              SelectionMode="Single"
+                              KeyboardNavigation.TabNavigation="Once"
+                              AutomationProperties.Name="Auto-start inventory grid. Use arrow keys to move between entries.">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Entry" Binding="{Binding DisplayName}" Width="220"
+                                                AutomationProperties.Name="Entry display name column"/>
+                            <DataGridTextColumn Header="Source" Binding="{Binding SourceKind}" Width="130"
+                                                AutomationProperties.Name="Source kind column"/>
+                            <DataGridTextColumn Header="Scope" Binding="{Binding Scope}" Width="80"
+                                                AutomationProperties.Name="Scope column"/>
+                            <DataGridTextColumn Header="Target(s)" Binding="{Binding Targets}" Width="320"
+                                                AutomationProperties.Name="Target paths column"/>
+                            <DataGridTextColumn Header="Signing" Binding="{Binding SigningText}" Width="140"
+                                                AutomationProperties.Name="Signing status column (text, never color-only)"/>
+                            <DataGridTextColumn Header="Publisher" Binding="{Binding Publisher}" Width="200"
+                                                AutomationProperties.Name="Publisher / signer column"/>
+                            <DataGridTextColumn Header="Health" Binding="{Binding HealthText}" Width="80"
+                                                AutomationProperties.Name="Observation health column"/>
+                            <DataGridTextColumn Header="Quarantine" Binding="{Binding QuarantineReason}" Width="260"
+                                                AutomationProperties.Name="Quarantine availability column"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,0,16,0">
+                        <Button Content="Quarantine selected" Command="{Binding QuarantineSelectedCommand}"
+                                Padding="10,4" AutomationProperties.Name="Quarantine the selected entry. Disabled entries that cannot be exactly restored are refused."/>
+                    </StackPanel>
+                    <ProgressBar Height="3" VerticalAlignment="Top" IsIndeterminate="True"
+                                 Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"
+                                 AutomationProperties.Name="Scan in progress"/>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Snapshot diff" AutomationProperties.Name="Snapshot diff tab">
+                <DataGrid ItemsSource="{Binding DiffRows}" AutoGenerateColumns="False" IsReadOnly="True"
+                          EnableRowVirtualization="True"
+                          AutomationProperties.Name="Snapshot diff rows">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Change" Binding="{Binding Bucket}" Width="100"
+                                            AutomationProperties.Name="Diff bucket column"/>
+                        <DataGridTextColumn Header="Entry" Binding="{Binding DisplayName}" Width="260"
+                                            AutomationProperties.Name="Diff entry name column"/>
+                        <DataGridTextColumn Header="Source" Binding="{Binding SourceKind}" Width="140"
+                                            AutomationProperties.Name="Diff source column"/>
+                        <DataGridTextColumn Header="Scope" Binding="{Binding Scope}" Width="80"
+                                            AutomationProperties.Name="Diff scope column"/>
+                        <DataGridTextColumn Header="Details" Binding="{Binding Details}" Width="*"
+                                            AutomationProperties.Name="Diff evidence column"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+
+            <TabItem Header="Change journal" AutomationProperties.Name="Change journal tab">
+                <Grid>
+                    <DataGrid x:Name="JournalGrid" ItemsSource="{Binding JournalRows}"
+                              SelectedItem="{Binding SelectedJournalRow}"
+                              AutoGenerateColumns="False" IsReadOnly="True"
+                              EnableRowVirtualization="True"
+                              AutomationProperties.Name="Change journal rows. Select a row and use Restore selected.">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="#" Binding="{Binding Id}" Width="50"
+                                                AutomationProperties.Name="Journal record id column"/>
+                            <DataGridTextColumn Header="When (UTC)" Binding="{Binding CreatedAtUtc}" Width="150"
+                                                AutomationProperties.Name="Journal record timestamp column"/>
+                            <DataGridTextColumn Header="Entry" Binding="{Binding DisplayName}" Width="200"
+                                                AutomationProperties.Name="Journal entry name column"/>
+                            <DataGridTextColumn Header="Source" Binding="{Binding SourceKind}" Width="120"
+                                                AutomationProperties.Name="Journal source column"/>
+                            <DataGridTextColumn Header="Scope" Binding="{Binding Scope}" Width="75"
+                                                AutomationProperties.Name="Journal scope column"/>
+                            <DataGridTextColumn Header="Result" Binding="{Binding ResultText}" Width="260"
+                                                AutomationProperties.Name="Quarantine result column"/>
+                            <DataGridTextColumn Header="Restore" Binding="{Binding RestoreText}" Width="180"
+                                                AutomationProperties.Name="Restore status column"/>
+                            <DataGridTextColumn Header="Detail" Binding="{Binding DetailText}" Width="*"
+                                                AutomationProperties.Name="Journal detail column"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,0,16,0">
+                        <Button Content="Restore selected" Command="{Binding RestoreSelectedJournalRecordCommand}"
+                                Padding="10,4" AutomationProperties.Name="Restore the selected journal record with its exact inverse"/>
+                        <Button Content="Refresh journal" Command="{Binding RefreshJournalCommand}" Margin="0,6,0,0"
+                                Padding="10,4" AutomationProperties.Name="Reload the change journal"/>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>AutostartAudit.App.Model</RootNamespace>
+    <Description>Platform-neutral view models for the Autostart Audit WPF UI. Contains no WPF types so the presentation logic stays testable on any host.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AutostartAudit.Core\AutostartAudit.Core.csproj" />
+  </ItemGroup>
+</Project>
