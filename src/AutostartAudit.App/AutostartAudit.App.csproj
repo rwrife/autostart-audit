@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <RootNamespace>AutostartAudit.App</RootNamespace>
+    <AssemblyName>autostart-audit-app</AssemblyName>
+    <Description>Windows desktop UI for Autostart Audit (virtualized inventory, diff, journal, redacted export).</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AutostartAudit.Core\AutostartAudit.Core.csproj" />
+    <ProjectReference Include="..\AutostartAudit.App.Model\AutostartAudit.App.Model.csproj" />
+  </ItemGroup>
+</Project>

@@ -67,8 +67,11 @@ Autostart Audit is an **audit and quarantine tool**, not a cleanup product. It n
 
 **Status:** the headless .NET 8 scan engine and CLI implement the M1/M2/M3
 sources plus local Authenticode evidence, the M4 snapshot store + diff engine,
-and the M4 journal-first quarantine/restore core + CLI. The desktop UI and
-packaging remain future milestones.
+and the M4 journal-first quarantine/restore core + CLI. The M5 WPF desktop UI
+(virtualized inventory, filters, diff tab, journal tab with per-row Restore,
+scan-completeness footer), redacted JSON/Markdown export, and the self-contained
+single-file portable packaging (CI artifact on `v*` tags) are **implemented**;
+MSIX packaging remains a later milestone.
 
 1. M1 — project skeleton, CI, scan engine for Run keys + startup folders (read-only).
 2. M2 — scheduled tasks + services scanning, elevation-aware capability states.
@@ -76,7 +79,8 @@ packaging remain future milestones.
 4. M4 — snapshot diff (store, migration stub, new/removed/changed engine) and
    journal-first quarantine/restore with exact inverse + change journal.
    **Implemented.**
-5. M5 — export, packaging (portable + MSIX), accessibility pass.
+5. M5 — export, packaging (portable), accessibility pass. **Implemented**
+   (MSIX explicitly deferred).
 
 ## Scan and signature coverage and limits
 
@@ -193,6 +197,38 @@ packaging remain future milestones.
 - The database carries a schema version. A store written by a newer build is
   refused outright, and unknown older versions fail closed rather than being
   reinterpreted under the current shape.
+
+### Desktop UI, export, and packaging
+
+- The WPF UI (`src/AutostartAudit.App`, CommunityToolkit.Mvvm) presents a
+  virtualized inventory grid (name, source, scope, targets, signing status,
+  publisher, health), composed filters (source, signing status, scope, free
+  text), a snapshot-diff tab, and a change-journal tab with per-row Restore.
+  The persistent footer states scan completeness per source; an incomplete
+  scan is announced as incomplete, never as a clean machine.
+- Status is text-first and never color-only: every status renders as words
+  ("signed", "unverified", "denied", "pending — mutation outcome NOT
+  established"), and every column/control carries an
+  `AutomationProperties.Name`. Keyboard shortcuts F5 (scan), Ctrl+S
+  (snapshot+diff), Ctrl+E (export); the journal's `Pending` records render as
+  unresolved and are deliberately NOT restorable, because an unestablished
+  mutation has no trustworthy inverse.
+- Export (JSON and Markdown) redacts Windows user-profile path prefixes
+  (`<drive>:\Users\<profile>`, legacy `Documents and Settings`, UNC and
+  verbatim forms) by default at the text level over the finished artifact —
+  tests prove no `C:\Users\<name>` identity (raw or JSON-escaped) survives.
+  The local-only signature-policy disclosure ships inside both formats.
+- Packaging: self-contained single-file portable `win-x64` build published as
+  a CI artifact on `v*` tags. Artifacts are **unsigned preview builds** (code
+  signing is an explicit open cost decision); SmartScreen prompts are expected
+  and disclosed. MSIX is deferred.
+- CI runs a fixture-backed WPF UI smoke (`--smoke-test` flag) on
+  windows-latest that verifies scan/filter/journal/export wiring against a
+  synthetic service with zero real-machine mutation, plus structural
+  accessibility tests that parse the live XAML on every host. Elevation
+  prompts, real quarantine round-trips, and other bench-only behaviors are
+  manual evidence items — see `docs/manual-bench-checklist.md`; CI never
+  claims them.
 
 ## Development quickstart
 
